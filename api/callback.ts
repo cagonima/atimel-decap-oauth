@@ -21,20 +21,17 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
     const accessToken = await client.getToken(tokenParams);
     const token = accessToken.token["access_token"] as string;
 
-    const responseBody = renderBody("success", {
-      token,
-      // REMOVE: provider field from JSON - Decap doesn't expect it
-    });
+    const responseBody = renderBody("success", token);
 
     res.statusCode = 200;
     res.end(responseBody);
   } catch (e) {
     res.statusCode = 200;
-    res.end(renderBody("error", e));
+    res.end(renderBody("error", null));
   }
 };
 
-function renderBody(status: string, content: any) {
+function renderBody(status: string, token: string | null) {
   return `
     <!doctype html>
     <html>
@@ -45,17 +42,25 @@ function renderBody(status: string, content: any) {
       <body>
         <script>
           (function() {
-            // FIXED: Only include token in JSON, not provider
-            var msg = 'authorization:github:${status}:${JSON.stringify(content)}';
-            if (window.opener && typeof window.opener.postMessage === 'function') {
-              // Send the final token back to Decap CMS and close this popup
-              window.opener.postMessage(msg, '*');
-              window.close();
-            } else {
-              document.body.innerText = 'Authentication finished. You can close this window.';
-            }
+            const receiveMessage = (message) => {
+              // Wait for handshake reply from Decap before sending token
+              if (message.data === 'decap-oauth-handshake') {
+                window.removeEventListener("message", receiveMessage, false);
+                
+                // Send the final token back to Decap CMS and close this popup
+                var msg = 'authorization:github:${status}:${JSON.stringify({ token })}';
+                window.opener.postMessage(msg, '*');
+                window.close();
+              }
+            };
+            
+            window.addEventListener("message", receiveMessage, false);
+            
+            // Notify Decap that authorization is starting
+            window.opener.postMessage("authorizing:github", "*");
           })();
         </script>
+        <p>Authorizing Decap...</p>
       </body>
     </html>
   `;
