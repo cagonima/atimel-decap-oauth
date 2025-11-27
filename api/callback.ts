@@ -34,28 +34,28 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
   }
 };
 
-function renderBody(
-  status: string,
-  content: {
-    token: string;
-    provider: string;
-  }
-) {
+function renderBody(status: string, content: any) {
   return `
-    <script>
-      const receiveMessage = (message) => {
-        window.opener.postMessage(
-          'authorization:${content.provider}:${status}:${JSON.stringify(
-    content
-  )}',
-          message.origin
-        );
-
-        window.removeEventListener("message", receiveMessage, false);
-      }
-      window.addEventListener("message", receiveMessage, false);
-
-      window.opener.postMessage("authorizing:${content.provider}", "*");
-    </script>
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Decap OAuth</title>
+      </head>
+      <body>
+        <script>
+          (function() {
+            var msg = 'authorization:${content.provider}:${status}:${JSON.stringify(content)}';
+            if (window.opener && typeof window.opener.postMessage === 'function') {
+              // Send the final token back to Decap CMS and close this popup
+              window.opener.postMessage(msg, '*');
+              window.close();
+            } else {
+              document.body.innerText = 'Authentication finished. You can close this window.';
+            }
+          })();
+        </script>
+      </body>
+    </html>
   `;
 }
