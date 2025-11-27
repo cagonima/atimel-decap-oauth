@@ -23,7 +23,7 @@ export default async (req: IncomingMessage, res: ServerResponse) => {
 
     const responseBody = renderBody("success", {
       token,
-      provider,
+      // REMOVE: provider field from JSON - Decap doesn't expect it
     });
 
     res.statusCode = 200;
@@ -45,7 +45,8 @@ function renderBody(status: string, content: any) {
       <body>
         <script>
           (function() {
-            var msg = 'authorization:${content.provider}:${status}:${JSON.stringify(content)}';
+            // FIXED: Only include token in JSON, not provider
+            var msg = 'authorization:github:${status}:${JSON.stringify(content)}';
             if (window.opener && typeof window.opener.postMessage === 'function') {
               // Send the final token back to Decap CMS and close this popup
               window.opener.postMessage(msg, '*');
